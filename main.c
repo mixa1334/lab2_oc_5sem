@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-pthread_mutex_t lock;
+//pthread_mutex_t lock;
 sem_t writer_s;
 sem_t reader_s;
 
@@ -15,8 +15,9 @@ void* fileReader(void* arg);
 void* fileWriter(void* arg);
 
 int main(){
+    symbol = EOF;
 
-    pthread_mutex_init(&lock, NULL);
+    //pthread_mutex_init(&lock, NULL);
     sem_init(&writer_s, 0, 0);
     sem_init(&reader_s, 0, 1);
 
@@ -39,26 +40,23 @@ void* fileReader(void* arg)
     FILE *file;
     file = fopen("input.txt", "r");
 
-    if (file == NULL)
+    if (file != NULL)
     {
-        return -1;
-    }
-
-    while (1)
-    {
-        sleep(1);
-        sem_wait(&reader_s);
-        symbol = fgetc(file);
-        if(symbol == EOF){
+        while (1)
+        {
+            sem_wait(&reader_s);
+            symbol = fgetc(file);
+            if(symbol == EOF)
+            {
+                sem_post(&writer_s);
+                break;
+            }
+            printf("symbol from file - %c\n", symbol);
             sem_post(&writer_s);
-            break;
         }
-        sem_post(&writer_s);
     }
 
     fclose(file);
-
-    return 0;
 }
 
 void* fileWriter(void* arg)
@@ -66,23 +64,20 @@ void* fileWriter(void* arg)
     FILE *file;
     file = fopen("output.txt", "w");
 
-    if (file == NULL)
+    if (file != NULL)
     {
-        return -1;
+        while (1)
+        {
+            sem_wait(&writer_s);
+            if(symbol == EOF){
+                sem_post(&reader_s);
+                break;
+            }
+            fputc(symbol, file);
+            printf("symbol to write - %c\n", symbol);
+            sem_post(&reader_s);
+        }   
     }
 
-    while (1)
-    {
-        sem_wait(&writer_s);
-        if(symbol == EOF){
-            sem_post(&reader_s);
-            break;
-        }
-        fputc(symbol, file);
-        sem_post(&reader_s);
-    }
-    
     fclose(file);
-    
-    return 0;
 }
