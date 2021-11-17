@@ -24,6 +24,7 @@ int main(){
     pthread_t reader_thread, writer_thread;
 
     pthread_create(&reader_thread,NULL,fileReader,NULL);
+    sleep(2);
     pthread_create(&writer_thread,NULL,fileWriter,NULL);
 
     pthread_join(reader_thread, NULL);
@@ -54,9 +55,8 @@ void* fileReader(void* arg)
             printf("symbol from file - %c\n", symbol);
             sem_post(&writer_s);
         }
+        fclose(file);
     }
-
-    fclose(file);
 }
 
 void* fileWriter(void* arg)
@@ -76,8 +76,7 @@ void* fileWriter(void* arg)
             fputc(symbol, file);
             printf("symbol to write - %c\n", symbol);
             sem_post(&reader_s);
-        }   
+        }
+        fclose(file);   
     }
-
-    fclose(file);
 }
