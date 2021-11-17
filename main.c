@@ -5,44 +5,39 @@
 #include <unistd.h>
 
 pthread_mutex_t lock;
-sem_t writer;
-sem_t reader;
+sem_t writer_s;
+sem_t reader_s;
 
 char symbol;
 
+void* fileReader(void* arg);
+
+void* fileWriter(void* arg);
 
 int main(){
 
     pthread_mutex_init(&lock, NULL);
-    sem_init(&writer, 0, 1);
-    sem_init(&reader, 0, 1);
+    sem_init(&writer_s, 0, 0);
+    sem_init(&reader_s, 0, 1);
 
     pthread_t reader_thread, writer_thread;
 
-
+    pthread_create(&reader_thread,NULL,fileReader,NULL);
+    pthread_create(&writer_thread,NULL,fileWriter,NULL);
 
     pthread_join(reader_thread, NULL);
     pthread_join(writer_thread, NULL);
 
-
-    // if(readFile("input.txt") != 0)
-    // {
-    //     printf("cant read from file\n");
-    // }
-    // printf("\n\n");
-    // if(writeFile("output.txt") != 0)
-    // {
-    //     printf("cant write to file\n");
-    // }
+    sem_destroy(&reader_s);
+    sem_destroy(&writer_s);
 
     return 0;
 }
 
-int readFile(char *fileName)
+void* fileReader(void* arg)
 {
-    printf("file -> %s\n", fileName);
     FILE *file;
-    file = fopen(fileName, "r");
+    file = fopen("input.txt", "r");
 
     if (file == NULL)
     {
@@ -51,21 +46,23 @@ int readFile(char *fileName)
 
     while (1)
     {
+        sleep(1);
+        sem_wait(&reader_s);
         symbol = fgetc(file);
         if(symbol == EOF){
+            sem_post(&writer_s);
             break;
         }
-        printf("%c", symbol);
+        sem_post(&writer_s);
     }
 
     fclose(file);
-    
+
     return 0;
 }
 
-int writeFile(char *fileName)
+void* fileWriter(void* arg)
 {
-    printf("file -> %s\n", fileName);
     FILE *file;
     file = fopen("output.txt", "w");
 
@@ -76,11 +73,13 @@ int writeFile(char *fileName)
 
     while (1)
     {
-        printf("%c", symbol);
+        sem_wait(&writer_s);
         if(symbol == EOF){
+            sem_post(&reader_s);
             break;
         }
         fputc(symbol, file);
+        sem_post(&reader_s);
     }
     
     fclose(file);
