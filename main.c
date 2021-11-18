@@ -16,8 +16,8 @@ sem_t *writer_s;
 sem_t *reader_s;
 char *symbol;
 
-void readProcess();
-void writeProcess();
+void readProcess(const char *file_name);
+void writeProcess(const char *file_name);
 void cleanUp(int shmid);
 
 int main()
@@ -26,7 +26,7 @@ int main()
     int shmid;
 
     shmkey = ftok("/dev/null", 5);
-    shmid = shmget(shmkey, sizeof (int), 0644 | IPC_CREAT);
+    shmid = shmget(shmkey, sizeof (char), 0644 | IPC_CREAT);
     if (shmid < 0)
     {
         perror("shmget\n");
@@ -49,7 +49,7 @@ int main()
         }
         else if (writer == 0)
         {
-            writeProcess();
+            writeProcess("output.txt");
         }
         else
         {
@@ -60,7 +60,7 @@ int main()
     }
     else if(reader == 0)
     {
-        readProcess();
+        readProcess("input.txt");
     }
     else
     {
@@ -71,10 +71,10 @@ int main()
     return 0;
 }
 
-void readProcess()
+void readProcess(const char *file_name)
 {
     FILE *file;
-    file = fopen("input.txt", "r");
+    file = fopen(file_name, "r");
 
     if (file != NULL)
     {
@@ -94,10 +94,10 @@ void readProcess()
     }
 }
 
-void writeProcess()
+void writeProcess(const char *file_name)
 {
     FILE *file;
-    file = fopen("output.txt", "w");
+    file = fopen(file_name, "w");
 
     if (file != NULL)
     {
