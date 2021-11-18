@@ -17,27 +17,27 @@ sem_t *reader_s;
 char *symbol;
 
 void readProcess();
-
 void writeProcess();
+void cleanUp(int shmid);
 
 int main()
 {
     key_t shmkey;
     int shmid;
 
-    shmkey = ftok ("/dev/null", 5);
-    shmid = shmget (shmkey, sizeof (int), 0644 | IPC_CREAT);
+    shmkey = ftok("/dev/null", 5);
+    shmid = shmget(shmkey, sizeof (int), 0644 | IPC_CREAT);
     if (shmid < 0)
     {
-        perror ("shmget\n");
-        exit (EXIT_FAILURE);
+        perror("shmget\n");
+        exit(EXIT_FAILURE);
     }
 
-    symbol = (char *) shmat (shmid, NULL, 0);
+    symbol = (char*) shmat(shmid, NULL, 0);
     *symbol = EOF;
 
-    writer_s = sem_open ("writer_sem", O_CREAT | O_EXCL, 0644, 0);
-    reader_s = sem_open ("reader_sem", O_CREAT | O_EXCL, 0644, 1);
+    writer_s = sem_open("writer_sem", O_CREAT | O_EXCL, 0644, 0);
+    reader_s = sem_open("reader_sem", O_CREAT | O_EXCL, 0644, 1);
 
     pid_t reader = fork();
     if(reader > 0)
@@ -45,19 +45,7 @@ int main()
         pid_t writer = fork();
         if(writer > 0)
         {
-            while (writer = waitpid (-1, NULL, 0))
-            {
-                if (errno == ECHILD)
-                    break;
-            }
-            
-            shmdt (symbol);
-            shmctl (shmid, IPC_RMID, 0);
-
-            sem_unlink ("writer_sem");  
-            sem_unlink ("reader_sem"); 
-            sem_close(writer_s);
-            sem_close(reader_s); 
+            cleanUp(shmid);
         }
         else if (writer == 0)
         {
@@ -65,6 +53,7 @@ int main()
         }
         else
         {
+            cleanUp(shmid);
             exit(EXIT_FAILURE);
         }
         
@@ -75,6 +64,7 @@ int main()
     }
     else
     {
+        cleanUp(shmid);
         exit(EXIT_FAILURE);
     }
 
@@ -124,4 +114,22 @@ void writeProcess()
         }
         fclose(file);   
     }
+}
+
+void cleanUp(int shmid)
+{
+    pid_t pid;
+    while (pid = waitpid(-1, NULL, 0))
+    {
+        if (errno == ECHILD)
+            break;
+    }
+
+    shmdt(symbol);
+    shmctl(shmid, IPC_RMID, 0);
+
+    sem_unlink("writer_sem");  
+    sem_unlink("reader_sem"); 
+    sem_close(writer_s);
+    sem_close(reader_s);
 }
