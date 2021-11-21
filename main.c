@@ -71,7 +71,7 @@ int main()
     }
     else if(rpid == 0)
     {
-        readProcess("errorinput.txt");
+        readProcess("input.txt");
     }
     else
     {
