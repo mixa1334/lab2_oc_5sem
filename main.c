@@ -2,15 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
-#include <sys/mman.h>
 #include <sys/shm.h>
-#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
-#include <errno.h>
 #include <signal.h>
 
 sem_t *writer_s;
@@ -24,6 +21,14 @@ void writeProcess(const char *file_name);
 void cleanUp(int shmid);
 void sig_usr();
 
+/*
+Вариант 3.
+Написать программу, копирующую файл. Программа должна запускать два дочерних процесса, один читает файл, другой пишет. 
+Передача данных между процессами должна быть реализована через общую область памяти, синхронизация – с помощью объектов ядра. 
+Материнский процесс должен обрабатывать ошибки в дочерних процессах 
+(например, если при записи произошла ошибка – читающий процесс должен завершаться материнским).
+*/
+
 int main()
 {
     key_t shmkey;
@@ -33,22 +38,22 @@ int main()
     shmid = shmget(shmkey, sizeof (char), 0644 | IPC_CREAT);
     if (shmid < 0)
     {
-        perror("shmget\n");
         exit(EXIT_FAILURE);
     }
 
     symbol = (char*) shmat(shmid, NULL, 0);
     *symbol = EOF;
 
-    writer_s = sem_open("writer_sem", O_CREAT | O_EXCL, 0644, -1);
-    reader_s = sem_open("reader_sem", O_CREAT | O_EXCL, 0644, 0);
+    writer_s = sem_open("writer_sem", O_CREAT | O_EXCL, 0644, 0);
+    reader_s = sem_open("reader_sem", O_CREAT | O_EXCL, 0644, 1);
+    signal(SIGUSR1, (void (*)(int))sig_usr);
     wpid = -1;
     rpid = -1;
 
-    pid_t rpid = fork();
+    rpid = fork();
     if(rpid > 0)
     {
-        pid_t wpid = fork();
+        wpid = fork();
         if(wpid > 0)
         {
             cleanUp(shmid);
@@ -66,7 +71,7 @@ int main()
     }
     else if(rpid == 0)
     {
-        readProcess("_input.txt");
+        readProcess("errorinput.txt");
     }
     else
     {
@@ -97,7 +102,6 @@ void readProcess(const char *file_name)
             sem_post(writer_s);
             break;
         }
-        printf("symbol from file - %c\n", *symbol);
         sem_post(writer_s);
     }
     fclose(file);
@@ -121,8 +125,11 @@ void writeProcess(const char *file_name)
             sem_post(reader_s);
             break;
         }
-        fputc(*symbol, file);
-        printf("symbol to write - %c\n", *symbol);
+        if(fputc(*symbol, file) == EOF)
+        {
+            kill(getppid(), SIGUSR1);
+            pause();
+        }
         sem_post(reader_s);
     }
     fclose(file);   
@@ -130,13 +137,8 @@ void writeProcess(const char *file_name)
 
 void cleanUp(int shmid)
 {
-    signal(SIGUSR1, (void (*)(int))sig_usr);
     pid_t pid;
-    sem_post(reader_s);
-    sem_post(writer_s);
     while ((pid = wait(NULL)) > 0){}
-
-    printf("start clean");
 
     shmdt(symbol);
     shmctl(shmid, IPC_RMID, 0);
@@ -153,12 +155,10 @@ void sig_usr(int sig)
     {    
         if(rpid > 0)
         {
-            printf("kill r");
             kill(rpid, SIGKILL);
         }
         if(wpid > 0)
         {
-            printf("kill w");
             kill(wpid, SIGKILL);
         }
     }
