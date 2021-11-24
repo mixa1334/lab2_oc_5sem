@@ -3,4 +3,4 @@ main: main.o
 main.o: main.c
 	gcc -c main.c -pthread -lrt
 clean:
-	rm -f main main.o
+	rm -f main main.o output.txt

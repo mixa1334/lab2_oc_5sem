@@ -44,9 +44,9 @@ int main()
     symbol = (char*) shmat(shmid, NULL, 0);
     *symbol = EOF;
 
-    writer_s = sem_open("writer_sem", O_CREAT | O_EXCL, 0644, 0);
-    reader_s = sem_open("reader_sem", O_CREAT | O_EXCL, 0644, 1);
-    signal(SIGUSR1, (void (*)(int))sig_usr);
+    writer_s = sem_open("writer_sem", O_CREAT, 0644, 0);
+    reader_s = sem_open("reader_sem", O_CREAT, 0644, 1);
+    signal(SIGUSR1, sig_usr);
     wpid = -1;
     rpid = -1;
 
